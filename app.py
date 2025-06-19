@@ -25,19 +25,28 @@ if uploaded_file and st.button("Generar CSV"):
         docs = db.collection(coleccion_nombre).stream()
 
         data = []
+        all_keys = set()
+
         for doc in docs:
             doc_dict = doc.to_dict()
+            flat_doc = {}
+
             for key, value in doc_dict.items():
                 if isinstance(value, (dict, list)):
-                    doc_dict[key] = json.dumps(value)
+                    flat_doc[key] = json.dumps(value)
                 elif isinstance(value, datetime.datetime):
-                    doc_dict[key] = value.isoformat()
+                    flat_doc[key] = value.isoformat()
                 elif isinstance(value, GeoPoint):
-                    doc_dict[key] = f"{value.latitude}, {value.longitude}"
-            doc_dict['id'] = doc.id
-            data.append(doc_dict)
+                    flat_doc[key] = f"{value.latitude}, {value.longitude}"
+                else:
+                    flat_doc[key] = value
+                all_keys.add(key)
+
+            flat_doc['id'] = doc.id
+            data.append(flat_doc)
 
         df = pd.DataFrame(data)
+        df = df.reindex(columns=sorted(all_keys) + ['id'])
 
         # Guardar en memoria
         buffer = BytesIO()
