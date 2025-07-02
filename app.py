@@ -1,81 +1,61 @@
-
 import streamlit as st
 import pandas as pd
 import json
-import firebase_admin
-from firebase_admin import credentials, firestore
-import datetime
+from google.oauth2 import service_account
+from google.cloud import firestore
+from io import BytesIO
 
-st.set_page_config(page_title="Firestore to CSV", layout="centered")
+st.set_page_config(page_title="Exportador Firestore a Excel")
 
-st.title("Descarga tu colección de Firestore como CSV")
+st.title("Exportador Firestore a Excel")
 
 uploaded_file = st.file_uploader("Sube tu archivo JSON con credenciales", type="json")
 
 if uploaded_file:
+    credentials_info = json.load(uploaded_file)
+    project_id = credentials_info.get("project_id", "")
+
     try:
-        creds = json.load(uploaded_file)
-        firebase_admin.initialize_app(credentials.Certificate(creds))
-        db = firestore.client()
+        credentials = service_account.Credentials.from_service_account_info(credentials_info)
+        db = firestore.Client(credentials=credentials, project=project_id)
 
-        proyecto = creds.get("project_id", "")
+        docs = db.collection("respuestas").stream()
+        data = [doc.to_dict() for doc in docs]
 
-        collection_name = st.text_input("Nombre de la colección en Firestore")
-
-        if collection_name:
-            docs = db.collection(collection_name).stream()
-            data = []
-
-            for doc in docs:
-                entry = doc.to_dict()
-                entry["id"] = doc.id
-                data.append(entry)
-
+        if not data:
+            st.warning("No se encontraron documentos en la colección 'respuestas'.")
+        else:
             df = pd.DataFrame(data)
 
-            if proyecto == "dondeestamicabezaserver":
+            if project_id == "dondeestamicabezaserver":
                 if "id" in df.columns:
                     df.drop(columns=["id"], inplace=True)
 
-                renames = {
-                    "ActividadActual": "¿Cuál es tu actividad actual?",
-                    "ConQueTeDiviertes": "¿Con qué te diviertes?",
-                    "CualidadesDelInfluencer": "¿Qué cualidades valoras en un influencer?",
-                    "CuandoEstasDiscutiendo": "¿Qué haces cuando estás discutiendo?",
-                    "CuandoMeEnfrentoALosProblemas": "¿Qué haces cuando enfrentas un problema?",
-                    "CuandoVeoAlguienEnProblemas": "¿Qué haces si ves a alguien con problemas?",
-                    "DespuesDeLaTormentaMeSiento": "Después de una tormenta, ¿cómo te sientes?",
-                    "DondeTeSientesMejor": "¿Dónde te sientes mejor?",
-                    "Donde_Vives": "¿Dónde vives?",
-                    "Edad": "¿Cuál es tu edad?",
-                    "FrecuenciaLograrObjetivos": "¿Con qué frecuencia logras tus objetivos?",
+                rename_map = {
+                    "SiTePasaAlgoBuenoAQuienLeCuentasPrimero": "¿Si te pasa algo bueno a quién le cuentas primero?",
                     "FrecuenciaPedirConsejo": "¿Con qué frecuencia pides consejo?",
-                    "Generos": "¿Con qué género te identificas?",
-                    "PanaInfluencer": "¿Tu pana influencer es?",
-                    "QueEsLoPeorDeTuTrabajoOEstudio": "¿Qué es lo peor de tu trabajo o estudio?",
-                    "QueTeGustariaHacer": "¿Qué te gustaría hacer?",
-                    "QueTeMantieneConVida": "¿Qué te mantiene con vida?",
-                    "Raza": "¿Con qué raza o etnia te identificas?",
-                    "SiTePasaAlgoBuenoAQuienLeCuentasPrimero": "¿A quién le cuentas primero si te pasa algo bueno?",
-                    "TeAdaptadasALosCambios": "¿Te adaptas fácilmente a los cambios?",
-                    "TeHazDespertadoFrescxYDescansadx": "¿Te has despertado fresc@ y descansad@?",
-                    "TeHazSentidoActivxYEnergicx": "¿Te has sentido activ@ y energic@?",
-                    "TeHazSentidoAlegreYDeBuenHumor": "¿Te has sentido alegre y de buen humor?",
-                    "TeHazSentidoTranquilxYRelajadx": "¿Te has sentido tranquil@ y relajad@?",
-                    "TuEn10Años": "¿Cómo te ves en 10 años?",
-                    "TuVidaCotiadianaHaEstadoLlenaDeCosasQueMeInteresen": "¿Tu vida diaria ha estado llena de cosas interesantes?",
-                    "YSiTePasaAlgoMalo": "¿A quién le cuentas si te pasa algo malo?"
+                    "CuandoEstasTristeQueHaces": "¿Qué haces cuando estás triste?",
+                    "CualEsTuMayorMiedo": "¿Cuál es tu mayor miedo?",
+                    "TienesAmigosQueTeEscuchan": "¿Tienes amigos que te escuchan?",
+                    "TeSientesSolxFrecuentemente": "¿Te sientes solx frecuentemente?",
+                    "ConfiasEnTusPadres": "¿Confías en tus padres?",
+                    "TeSientesEscuchadoPorAdultos": "¿Te sientes escuchado por adultos?",
+                    "Nombre": "Nombre",
+                    "Edad": "Edad"
                 }
 
-                df.rename(columns=renames, inplace=True)
+                df.rename(columns={k: v for k, v in rename_map.items() if k in df.columns}, inplace=True)
 
-            st.subheader("Vista previa del DataFrame")
+            st.subheader("Vista previa de los datos")
             st.dataframe(df)
 
-            csv = df.to_csv(index=False).encode("utf-8")
-            filename = f"{collection_name}_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
-
-            st.download_button("Descargar CSV", csv, filename=filename, mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
-
+            output = BytesIO()
+            df.to_excel(output, index=False)
+            st.download_button(
+                label="Descargar Excel",
+                data=output.getvalue(),
+                file_name="respuestas_exportadas.xlsx",
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            )
     except Exception as e:
-        st.error(f"Error: {e}")
+        st.error(f"Error al conectar a Firestore: {e}")
