@@ -38,29 +38,29 @@ if uploaded_json is not None:
         if registros:
             df = pd.DataFrame(registros)
 
-            if project_id == "dondeestamicabezaserver-dad3dcfe5244":
+            if project_id == "dondeestamicabezaserver":
                 reemplazos = {
-                    "SiTePasaAlgoBuenoAQuienLeCuentasPrimero": "¿Si te pasa algo bueno, a quién se lo cuentas primero?",
+                    "SiTePasaAlgoBuenoAQuienLeCuentasPrimero": "¿Si te pasa algo bueno a quién se lo cuentas primero?",
                     "FrecuenciaPedirConsejo": "¿Con qué frecuencia pides consejo cuando tienes un problema?",
                     "CuandoMeEnfrentoALosProblemas": "Cuando me enfrento a los problemas...",
                     "Raza": "¿Cómo te identificas?",
                     "QueTeMantieneConVida": "¿Qué te mantiene con vida?",
-                    "TeHazSentidoActivxYEnergicx": "Durante las últimas dos semanas, ¿te has sentido activx y llenx de energía?",
+                    "TeHazSentidoActivxYEnergicx": "Durante las últimas dos semanas ¿te has sentido activx y llenx de energía?",
                     "Donde_Vives": "¿Dónde vives?",
                     "YSiTePasaAlgoMalo": "¿Y si te pasa algo malo?",
                     "ConQueTeDiviertes": "¿Con qué te diviertes?",
                     "DespuesDeLaTormentaMeSiento": "Después de la tormenta me siento...",
-                    "TeHazDespertadoFrescxYDescansadx": "Durante las últimas dos semanas, ¿te has despertado frescx y descansadx?",
+                    "TeHazDespertadoFrescxYDescansadx": "Durante las últimas dos semanas ¿te has despertado frescx y descansadx?",
                     "TuEn10Años": "¿Cómo te imaginas en 10 años?",
                     "CuandoVeoAlguienEnProblemas": "Cuando veo a alguien con problemas...",
-                    "PanaInfluencer": "Si tuvieras un pana influencer, ¿qué debería hacer?",
-                    "Generos": "¿Qué géneros consumes?",
+                    "PanaInfluencer": "Si tuvieras un pana influencer ¿qué debería hacer?",
                     "QueTeGustariaHacer": "¿Qué te gustaría hacer?",
-                    "TeHazSentidoTranquilxYRelajadx": "Durante las últimas dos semanas, ¿te has sentido tranquilx y relajadx?",
+                    "Generos": "¿Qué géneros consumes?",
+                    "TeHazSentidoTranquilxYRelajadx": "Durante las últimas dos semanas ¿te has sentido tranquilx y relajadx?",
                     "FrecuenciaLograrObjetivos": "¿Con qué frecuencia logras tus objetivos?",
                     "ActividadActual": "¿Cuál es tu actividad principal actual?",
                     "TeAdaptadasALosCambios": "¿Qué tan fácil te adaptas a los cambios?",
-                    "TeHazSentidoAlegreYDeBuenHumor": "Durante las últimas dos semanas, ¿te has sentido alegre y de buen humor?",
+                    "TeHazSentidoAlegreYDeBuenHumor": "Durante las últimas dos semanas ¿te has sentido alegre y de buen humor?",
                     "CualidadesDelInfluencer": "¿Qué cualidades debería tener un influencer que te represente?",
                     "Edad": "¿Cuál es tu edad?",
                     "QueEsLoPeorDeTuTrabajoOEstudio": "¿Qué es lo peor de tu trabajo o tus estudios?",
@@ -75,6 +75,5 @@ if uploaded_json is not None:
             buffer = io.BytesIO()
             with pd.ExcelWriter(buffer, engine="xlsxwriter") as writer:
                 df.to_excel(writer, index=False, sheet_name="Export")
-                writer.save()
             st.success("¡Exportación completada!")
             st.download_button("Descargar Excel", buffer.getvalue(), file_name="export.xlsx")
