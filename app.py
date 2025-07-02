@@ -9,7 +9,7 @@ st.set_page_config(page_title="Exportador Firestore a Excel")
 
 st.title("Exportador Firestore a Excel")
 
-uploaded_file = st.file_uploader("Sube tu archivo JSON con credenciales", type="json")
+uploaded_file = st.file_uploader("Sube tu archivo JSON", type="json")
 
 if uploaded_file:
     credentials_info = json.load(uploaded_file)
