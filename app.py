@@ -61,6 +61,57 @@ if uploaded_file and st.button("Generar Excel"):
         st.write("Se encontraron", len(data), "documentos.")
 
         df = pd.DataFrame(data)
+
+        # Cargar el archivo de credenciales y verificar el project_id
+        import json
+        expected_project_id = "dondeestamicabezaserver"
+        target_collection = "respuestas"
+        try:
+            with open(credentials_path, "r") as f:
+                credentials_data = json.load(f)
+                project_id = credentials_data.get("project_id", "")
+        except Exception as e:
+            st.error(f"Error al leer las credenciales: {e}")
+            return
+
+        # Si el project_id y colección coinciden, aplicar la lógica de reemplazo
+        if project_id == expected_project_id and collection_name == target_collection:
+            field_name_map = {
+                "SiTePasaAlgoBuenoAQuienLeCuentasPrimero": "¿Si te pasa algo bueno, a quién se lo cuentas primero?",
+                "FrecuenciaPedirConsejo": "¿Con qué frecuencia pides consejo cuando no sabes qué hacer?",
+                "CuandoMeEnfrentoALosProblemas": "Cuando me enfrento a los problemas...",
+                "Raza": "¿Cuál es tu identidad étnico-racial?",
+                "QueTeMantieneConVida": "¿Qué te mantiene con vida?",
+                "TeHazSentidoActivxYEnergicx": "Durante las últimas dos semanas ¿Te has sentido activx y llenx de energía?",
+                "Donde_Vives": "¿Dónde vives?",
+                "YSiTePasaAlgoMalo": "¿Y si te pasa algo malo?",
+                "ConQueTeDiviertes": "¿Con qué te diviertes?",
+                "DespuesDeLaTormentaMeSiento": "Después de la tormenta me siento...",
+                "TeHazDespertadoFrescxYDescansadx": "Durante las últimas dos semanas ¿Te has despertado frescx y descansadx?",
+                "TuEn10Años": "¿Cómo te ves en 10 años?",
+                "CuandoVeoAlguienEnProblemas": "Cuando veo que alguien tiene problemas...",
+                "PanaInfluencer": "¿Quién es tu pana influencer?",
+                "Generos": "¿Con qué género(s) te identificas?",
+                "QueTeGustariaHacer": "¿Qué te gustaría hacer?",
+                "TeHazSentidoTranquilxYRelajadx": "Durante las últimas dos semanas ¿Te has sentido tranquilx y relajadx?",
+                "FrecuenciaLograrObjetivos": "¿Con qué frecuencia logras lo que te propones?",
+                "ActividadActual": "¿Cuál es tu actividad actual?",
+                "TeAdaptadasALosCambios": "¿Te adaptas con facilidad a los cambios?",
+                "TeHazSentidoAlegreYDeBuenHumor": "Durante las últimas dos semanas ¿Te has sentido alegre y de buen humor?",
+                "CualidadesDelInfluencer": "¿Qué cualidades debe tener un influencer para que te inspire?",
+                "Edad": "¿Cuántos años tienes?",
+                "QueEsLoPeorDeTuTrabajoOEstudio": "¿Qué es lo peor de tu trabajo o de tu estudio?",
+                "TuVidaCotiadianaHaEstadoLlenaDeCosasQueMeInteresen": "Durante las últimas dos semanas ¿Tu vida cotidiana ha estado llena de cosas que te interesen?",
+                "CuandoEstasDiscutiendo": "Cuando estás discutiendo con alguien...",
+                "DondeTeSientesMejor": "¿Dónde te sientes mejor?"
+            }
+
+            df.rename(columns=field_name_map, inplace=True)
+
+            # Eliminar columna 'id' si está presente
+            if 'id' in df.columns:
+                df.drop(columns=['id'], inplace=True)
+
         df = df.reindex(columns=sorted(all_keys) + ['id'])
 
         # Mostrar previsualización
