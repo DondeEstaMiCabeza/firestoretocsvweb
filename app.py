@@ -8,7 +8,7 @@ from firebase_admin.firestore import GeoPoint
 from io import BytesIO
 from collections.abc import MutableMapping
 
-st.title("Exportar datos de Firebase a CSV")
+st.title("Exportar datos de Firebase a Excel (.xlsx)")
 
 # Función para aplanar diccionarios anidados
 def flatten_dict(d, parent_key='', sep='.'):
@@ -24,7 +24,7 @@ def flatten_dict(d, parent_key='', sep='.'):
 uploaded_file = st.file_uploader("Sube tu archivo de credenciales de Firebase (.json)", type="json")
 coleccion_nombre = st.text_input("Nombre de la colección de Firestore", value="respuestas")
 
-if uploaded_file and st.button("Generar CSV"):
+if uploaded_file and st.button("Generar Excel"):
     try:
         # Inicializar Firebase desde archivo subido
         cred_dict = json.load(uploaded_file)
@@ -53,7 +53,6 @@ if uploaded_file and st.button("Generar CSV"):
                     flat_doc[key] = value.isoformat()
                 elif isinstance(value, GeoPoint):
                     flat_doc[key] = f"{value.latitude}, {value.longitude}"
-                # otros tipos se dejan igual
                 all_keys.add(key)
 
             flat_doc['id'] = doc.id
@@ -68,17 +67,18 @@ if uploaded_file and st.button("Generar CSV"):
         st.subheader("Previsualización de los datos")
         st.dataframe(df)
 
-        # Guardar en memoria
+        # Guardar como Excel en memoria
         buffer = BytesIO()
-        df.to_csv(buffer, index=False, encoding='utf-8-sig')
+        with pd.ExcelWriter(buffer, engine='xlsxwriter') as writer:
+            df.to_excel(writer, index=False, sheet_name='Respuestas')
         buffer.seek(0)
 
-        st.success("¡CSV generado exitosamente!")
+        st.success("¡Excel generado exitosamente!")
         st.download_button(
-            label="Descargar CSV",
+            label="Descargar Excel",
             data=buffer,
-            file_name="datos_exportados.csv",
-            mime="text/csv"
+            file_name="datos_exportados.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         )
     except Exception as e:
         st.error(f"Ocurrió un error: {e}")
