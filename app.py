@@ -1,79 +1,94 @@
-
 import streamlit as st
 import firebase_admin
 from firebase_admin import credentials, firestore
 import pandas as pd
+from io import BytesIO
 import json
-import io
+
+st.set_page_config(page_title="Exportador Firestore a Excel")
 
 st.title("Exportador Firestore a Excel")
+st.markdown("Sube tu archivo JSON con credenciales")
 
-uploaded_json = st.file_uploader("Sube tu archivo JSON con credenciales", type="json")
+# Cargar archivo JSON
+json_file = st.file_uploader("Elige el archivo JSON", type="json")
 
-if uploaded_json is not None:
-    data = json.load(uploaded_json)
-    project_id = data.get("project_id")
+project_id_input = st.text_input("Proyecto:", placeholder="ej. midatabase")
+collection_name = st.text_input("Nombre de la colección", value="respuestas")
 
-    # Mostrar project ID
-    st.info(f"Proyecto: {project_id}")
+if json_file and project_id_input and collection_name:
+    json_bytes = json_file.read()
+    json_dict = json.loads(json_bytes)
 
-    # Iniciar Firebase
+    # Validación del proyecto
+    if json_dict.get("project_id") != project_id_input:
+        st.error("El project_id del JSON no coincide con el ingresado.")
+        st.stop()
+
+    # Inicializar Firebase
     if not firebase_admin._apps:
-        cred = credentials.Certificate(data)
+        cred = credentials.Certificate(json_dict)
         firebase_admin.initialize_app(cred)
 
     db = firestore.client()
 
-    coleccion = st.text_input("Nombre de la colección", value="respuestas")
+    # Obtener documentos de la colección
+    docs = db.collection(collection_name).stream()
+    data = [doc.to_dict() for doc in docs]
 
-    if st.button("Exportar"):
-        docs = db.collection(coleccion).stream()
-        registros = []
+    if not data:
+        st.warning("La colección está vacía.")
+        st.stop()
 
-        for doc in docs:
-            data = doc.to_dict()
-            data["id"] = doc.id
-            registros.append(data)
+    df = pd.DataFrame(data)
 
-        if registros:
-            df = pd.DataFrame(registros)
+    # Renombrar columnas si es el proyecto especificado
+    if project_id_input == "dondeestamicabezaserver":
+        replacements = {
+            "¿Si te pasa algo bueno, a quién se lo cuentas primero?": "SiTePasaAlgoBuenoAQuienLeCuentasPrimero",
+            "¿Con qué frecuencia pides consejo cuando tienes un problema?": "FrecuenciaPedirConsejo",
+            "Cuando me enfrento a los problemas tiendo a...": "CuandoMeEnfrentoALosProblemas",
+            "¿Con qué raza te identificas más?": "Raza",
+            "¿Qué te mantiene con vida en los días difíciles?": "QueTeMantieneConVida",
+            "¿Te has sentido activx y energicx últimamente?": "TeHazSentidoActivxYEnergicx",
+            "¿Dónde vives?": "Donde_Vives",
+            "¿Y si te pasa algo malo, a quién se lo cuentas primero?": "YSiTePasaAlgoMalo",
+            "¿Con qué te diviertes últimamente?": "ConQueTeDiviertes",
+            "Después de la tormenta me siento...": "DespuesDeLaTormentaMeSiento",
+            "¿Te has despertado frescx y descansadx últimamente?": "TeHazDespertadoFrescxYDescansadx",
+            "¿Cómo te imaginas en 10 años?": "TuEn10Años",
+            "Cuando veo a alguien con problemas tiendo a...": "CuandoVeoAlguienEnProblemas",
+            "¿Qué características tendría un pana influencer que sigas?": "PanaInfluencer",
+            "¿Qué género(s) consumes más?": "Generos",
+            "¿Qué te gustaría hacer si el dinero no fuera un problema?": "QueTeGustariaHacer",
+            "¿Te has sentido tranquilx y relajadx últimamente?": "TeHazSentidoTranquilxYRelajadx",
+            "¿Con qué frecuencia logras tus objetivos personales?": "FrecuenciaLograrObjetivos",
+            "¿Qué estás haciendo actualmente (trabajo, estudio, etc.)?": "ActividadActual",
+            "¿Te adaptas con facilidad a los cambios?": "TeAdaptadasALosCambios",
+            "¿Te has sentido alegre y de buen humor últimamente?": "TeHazSentidoAlegreYDeBuenHumor",
+            "¿Qué cualidades debe tener un influencer que sigas?": "CualidadesDelInfluencer",
+            "¿Qué edad tienes?": "Edad",
+            "¿Qué es lo peor de tu trabajo o estudios actualmente?": "QueEsLoPeorDeTuTrabajoOEstudio",
+            "Mi vida cotidiana ha estado llena de cosas que me interesen": "TuVidaCotiadianaHaEstadoLlenaDeCosasQueMeInteresen",
+            "Cuando estás discutiendo con alguien sueles...": "CuandoEstasDiscutiendo",
+            "¿Dónde te sientes mejor?": "DondeTeSientesMejor"
+        }
 
-            if project_id == "dondeestamicabezaserver":
-                reemplazos = {
-                    "SiTePasaAlgoBuenoAQuienLeCuentasPrimero": "¿Si te pasa algo bueno a quién se lo cuentas primero?",
-                    "FrecuenciaPedirConsejo": "¿Con qué frecuencia pides consejo cuando tienes un problema?",
-                    "CuandoMeEnfrentoALosProblemas": "Cuando me enfrento a los problemas...",
-                    "Raza": "¿Cómo te identificas?",
-                    "QueTeMantieneConVida": "¿Qué te mantiene con vida?",
-                    "TeHazSentidoActivxYEnergicx": "Durante las últimas dos semanas ¿te has sentido activx y llenx de energía?",
-                    "Donde_Vives": "¿Dónde vives?",
-                    "YSiTePasaAlgoMalo": "¿Y si te pasa algo malo?",
-                    "ConQueTeDiviertes": "¿Con qué te diviertes?",
-                    "DespuesDeLaTormentaMeSiento": "Después de la tormenta me siento...",
-                    "TeHazDespertadoFrescxYDescansadx": "Durante las últimas dos semanas ¿te has despertado frescx y descansadx?",
-                    "TuEn10Años": "¿Cómo te imaginas en 10 años?",
-                    "CuandoVeoAlguienEnProblemas": "Cuando veo a alguien con problemas...",
-                    "PanaInfluencer": "Si tuvieras un pana influencer ¿qué debería hacer?",
-                    "QueTeGustariaHacer": "¿Qué te gustaría hacer?",
-                    "Generos": "¿Qué géneros consumes?",
-                    "TeHazSentidoTranquilxYRelajadx": "Durante las últimas dos semanas ¿te has sentido tranquilx y relajadx?",
-                    "FrecuenciaLograrObjetivos": "¿Con qué frecuencia logras tus objetivos?",
-                    "ActividadActual": "¿Cuál es tu actividad principal actual?",
-                    "TeAdaptadasALosCambios": "¿Qué tan fácil te adaptas a los cambios?",
-                    "TeHazSentidoAlegreYDeBuenHumor": "Durante las últimas dos semanas ¿te has sentido alegre y de buen humor?",
-                    "CualidadesDelInfluencer": "¿Qué cualidades debería tener un influencer que te represente?",
-                    "Edad": "¿Cuál es tu edad?",
-                    "QueEsLoPeorDeTuTrabajoOEstudio": "¿Qué es lo peor de tu trabajo o tus estudios?",
-                    "TuVidaCotiadianaHaEstadoLlenaDeCosasQueMeInteresen": "Mi vida cotidiana ha estado llena de cosas que me interesen.",
-                    "CuandoEstasDiscutiendo": "Cuando estás discutiendo...",
-                    "DondeTeSientesMejor": "¿Dónde te sientes mejor?"
-                }
-                df.rename(columns=reemplazos, inplace=True)
-                if "id" in df.columns:
-                    df.drop(columns=["id"], inplace=True)
+        df.rename(columns=replacements, inplace=True)
+        if "id" in df.columns:
+            del df["id"]
 
-            buffer = io.BytesIO()
-            with pd.ExcelWriter(buffer, engine="xlsxwriter") as writer:
-                df.to_excel(writer, index=False, sheet_name="Export")
-            st.success("¡Exportación completada!")
-            st.download_button("Descargar Excel", buffer.getvalue(), file_name="export.xlsx")
+    st.success("Datos cargados correctamente. Vista previa:")
+    st.dataframe(df.head())
+
+    # Descargar como Excel
+    output = BytesIO()
+    with pd.ExcelWriter(output, engine="xlsxwriter") as writer:
+        df.to_excel(writer, index=False, sheet_name="respuestas")
+
+    st.download_button(
+        label="📥 Descargar Excel",
+        data=output.getvalue(),
+        file_name="respuestas_exportadas.xlsx",
+        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
