@@ -8,7 +8,7 @@ import io
 
 st.title("Exportador Firestore a Excel")
 
-uploaded_json = st.file_uploader("Sube tu archivo survey.json con credenciales", type="json")
+uploaded_json = st.file_uploader("Sube tu archivo JSON con credenciales", type="json")
 
 if uploaded_json is not None:
     data = json.load(uploaded_json)
