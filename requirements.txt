@@ -1,4 +1,5 @@
 streamlit
-firebase-admin
 pandas
-xlsxwriter
+google-cloud-firestore
+google-auth
+openpyxl
