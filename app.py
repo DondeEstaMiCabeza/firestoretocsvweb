@@ -1,61 +1,104 @@
+
 import streamlit as st
+import firebase_admin
+from firebase_admin import credentials, firestore
 import pandas as pd
+import os
 import json
-from google.oauth2 import service_account
-from google.cloud import firestore
-from io import BytesIO
 
-st.set_page_config(page_title="Exportador Firestore a Excel")
+# Cargar el archivo JSON
+with open("survey.json") as source:
+    cred_data = json.load(source)
 
-st.title("Exportador Firestore a Excel")
+project_id = cred_data.get("project_id", "")
 
-uploaded_file = st.file_uploader("Sube tu archivo JSON con credenciales", type="json")
+# Inicializar Firebase
+if not firebase_admin._apps:
+    cred = credentials.Certificate(cred_data)
+    firebase_admin.initialize_app(cred)
 
-if uploaded_file:
-    credentials_info = json.load(uploaded_file)
-    project_id = credentials_info.get("project_id", "")
+db = firestore.client()
 
-    try:
-        credentials = service_account.Credentials.from_service_account_info(credentials_info)
-        db = firestore.Client(credentials=credentials, project=project_id)
+st.title("Exportar respuestas de Firebase a Excel")
 
-        docs = db.collection("respuestas").stream()
-        data = [doc.to_dict() for doc in docs]
+coleccion = st.text_input("Nombre de la colección de Firestore", value="respuestas")
 
-        if not data:
-            st.warning("No se encontraron documentos en la colección 'respuestas'.")
-        else:
-            df = pd.DataFrame(data)
+if st.button("Exportar a Excel"):
+    docs = db.collection(coleccion).stream()
 
-            if project_id == "dondeestamicabezaserver":
-                if "id" in df.columns:
-                    df.drop(columns=["id"], inplace=True)
+    datos = []
+    for doc in docs:
+        d = doc.to_dict()
+        d["id"] = doc.id
+        datos.append(d)
 
-                rename_map = {
-                    "SiTePasaAlgoBuenoAQuienLeCuentasPrimero": "¿Si te pasa algo bueno a quién le cuentas primero?",
-                    "FrecuenciaPedirConsejo": "¿Con qué frecuencia pides consejo?",
-                    "CuandoEstasTristeQueHaces": "¿Qué haces cuando estás triste?",
-                    "CualEsTuMayorMiedo": "¿Cuál es tu mayor miedo?",
-                    "TienesAmigosQueTeEscuchan": "¿Tienes amigos que te escuchan?",
-                    "TeSientesSolxFrecuentemente": "¿Te sientes solx frecuentemente?",
-                    "ConfiasEnTusPadres": "¿Confías en tus padres?",
-                    "TeSientesEscuchadoPorAdultos": "¿Te sientes escuchado por adultos?",
-                    "Nombre": "Nombre",
-                    "Edad": "Edad"
-                }
+    if not datos:
+        st.warning("No se encontraron documentos en la colección.")
+    else:
+        df = pd.DataFrame(datos)
 
-                df.rename(columns={k: v for k, v in rename_map.items() if k in df.columns}, inplace=True)
+        # Reglas especiales si el proyecto es 'dondeestamicabezaserver'
+        if project_id == "dondeestamicabezaserver":
+            # Diccionario de mapeo exacto
+            columnas_mapeadas = [
+                "Si te pasa algo bueno ¿a quién se lo cuentas primero?",
+                "¿Con qué frecuencia pides consejo a otras personas antes de tomar decisiones importantes?",
+                "Cuando me enfrento a los problemas...",
+                "¿Con cuál raza te identificas más?",
+                "¿Qué te mantiene con vida hoy?",
+                "Últimamente ¿te has sentido activx y energicx?",
+                "¿Dónde vives actualmente?",
+                "¿Y si te pasa algo malo?",
+                "¿Con qué te diviertes últimamente?",
+                "Después de la tormenta me siento...",
+                "¿Te has despertado frescx y descansadx últimamente?",
+                "¿Cómo te ves en 10 años?",
+                "Cuando veo a alguien con problemas...",
+                "Imagina que eres un Pana Influencer...",
+                "¿Qué te gustaría hacer o lograr este año?",
+                "¿Con qué géneros te identificas?",
+                "Últimamente ¿te has sentido tranquilx y relajadx?",
+                "¿Con qué frecuencia logras lo que te propones?",
+                "¿Qué haces actualmente? (ocupación)",
+                "¿Te adaptas con facilidad a los cambios?",
+                "Últimamente ¿te has sentido alegre y de buen humor?",
+                "¿Qué cualidades tendría tu influencer ideal?",
+                "¿Cuántos años tienes?",
+                "¿Qué es lo peor de tu trabajo o estudio?",
+                "Tu vida cotidiana ha estado llena de cosas que te interesen.",
+                "Cuando estás discutiendo con alguien...",
+                "¿Dónde te sientes mejor?"
+            ]
 
-            st.subheader("Vista previa de los datos")
-            st.dataframe(df)
+            claves_originales = [
+                "SiTePasaAlgoBuenoAQuienLeCuentasPrimero", "FrecuenciaPedirConsejo",
+                "CuandoMeEnfrentoALosProblemas", "Raza", "QueTeMantieneConVida",
+                "TeHazSentidoActivxYEnergicx", "Donde_Vives", "YSiTePasaAlgoMalo",
+                "ConQueTeDiviertes", "DespuesDeLaTormentaMeSiento",
+                "TeHazDespertadoFrescxYDescansadx", "TuEn10Años",
+                "CuandoVeoAlguienEnProblemas", "PanaInfluencer", "QueTeGustariaHacer",
+                "Generos", "TeHazSentidoTranquilxYRelajadx", "FrecuenciaLograrObjetivos",
+                "ActividadActual", "TeAdaptadasALosCambios", "TeHazSentidoAlegreYDeBuenHumor",
+                "CualidadesDelInfluencer", "Edad", "QueEsLoPeorDeTuTrabajoOEstudio",
+                "TuVidaCotiadianaHaEstadoLlenaDeCosasQueMeInteresen",
+                "CuandoEstasDiscutiendo", "DondeTeSientesMejor"
+            ]
 
-            output = BytesIO()
-            df.to_excel(output, index=False)
-            st.download_button(
-                label="Descargar Excel",
-                data=output.getvalue(),
-                file_name="respuestas_exportadas.xlsx",
-                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-            )
-    except Exception as e:
-        st.error(f"Error al conectar a Firestore: {e}")
+            renombrar_dict = dict(zip(claves_originales, columnas_mapeadas))
+            df.rename(columns=renombrar_dict, inplace=True)
+
+            if "id" in df.columns:
+                df.drop(columns=["id"], inplace=True)
+
+        # Crear archivo Excel
+        excel_path = "respuestas_exportadas.xlsx"
+        with pd.ExcelWriter(excel_path, engine='openpyxl') as writer:
+            df.to_excel(writer, index=False, sheet_name="Respuestas")
+            writer.sheets["Respuestas"].cell(row=1, column=1).value = "Respuestas exportadas"
+
+        st.success(f"Archivo Excel generado: {excel_path}")
+        st.download_button("Descargar Excel", data=open(excel_path, "rb").read(), file_name="respuestas_exportadas.xlsx")
+
+        # Previsualización
+        st.subheader("Previsualización")
+        st.dataframe(df.head())
